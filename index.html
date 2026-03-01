@@ -1,31 +1,794 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Oil Rig Rescue</title>
-    <link rel="stylesheet" href="style.css">
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║              HOW TO PLUG THIS INTO YOUR GAME — READ THIS FIRST              ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  YOUR GAME IS MULTIPLE FILES. HERE IS EXACTLY WHERE THIS GOES:              ║
+║                                                                              ║
+║  OPTION A — You have an index.html (most common)                            ║
+║  ─────────────────────────────────────────────────────────────────────────  ║
+║  1. Open your index.html in VS Code.                                        ║
+║  2. Copy EVERYTHING inside the <style> tag from this file and paste it      ║
+║     into your existing <style> block (or add a new one).                    ║
+║  3. Copy ALL the HTML between <body> and </body> — the #bg div, #topbar,   ║
+║     #ticker, #cutscene, and #title-screen — and paste it at the VERY TOP   ║
+║     of your own <body>, BEFORE any existing game HTML.                      ║
+║  4. Copy the entire <script> block from the bottom of this file and paste   ║
+║     it into your index.html BEFORE your game's own <script> tags.           ║
+║  5. In the play button listener at the bottom of the script, replace:       ║
+║       alert("...")                                                           ║
+║     with whatever your game uses to start — usually:                        ║
+║       startGame()   OR   initGame()   OR   startPlaying()                   ║
+║     Check your existing JS for a function that launches gameplay.           ║
+║  6. Open in browser. The intro runs first. When the player clicks           ║
+║     "PLAY AS GOTTA", your game function fires.                              ║
+║                                                                              ║
+║  OPTION B — Your game has a separate JS file (e.g. game.js)                ║
+║  ─────────────────────────────────────────────────────────────────────────  ║
+║  Same steps as above. The intro script is self-contained and will not       ║
+║  conflict with your game JS as long as you paste it before game.js loads.  ║
+║  Order in index.html should be:                                             ║
+║    1. This intro's <style>                                                  ║
+║    2. This intro's HTML (body)                                              ║
+║    3. This intro's <script>                   ← intro script first          ║
+║    4. <script src="game.js"></script>         ← your game script second     ║
+║                                                                              ║
+║  OPTION C — Your game is ONLY an HTML file (everything in one file)         ║
+║  ─────────────────────────────────────────────────────────────────────────  ║
+║  Simplest option: just use THIS file as your new index.html.                ║
+║  Paste your game's CSS into this file's <style>.                            ║
+║  Paste your game's HTML into this file's <body>, below #title-screen.      ║
+║  Paste your game's JS into this file's <script>, after showSlide(0).       ║
+║  Then replace the alert() in the play button with your game's start call.  ║
+║                                                                              ║
+║  FIND YOUR START FUNCTION:                                                  ║
+║  Search your game JS for one of these patterns:                             ║
+║    function startGame()  /  function initGame()  /  function startPlaying() ║
+║    canvas.requestPointerLock()   ← usually called right at game start       ║
+║  Whatever launches the game, call it from the play button listener here.   ║
+║                                                                              ║
+║  THINGS THAT WILL NOT CONFLICT:                                             ║
+║  • All intro IDs (#cutscene, #topbar, #ticker, #title-screen) are unique.  ║
+║  • The intro CSS only styles elements with those specific IDs/classes.      ║
+║  • The intro JS uses only local variables (no globals except functions).    ║
+║                                                                              ║
+║  THINGS TO CHECK IF SOMETHING LOOKS WRONG:                                 ║
+║  • If your game has  cursor:none  in its CSS, that will hide the cursor     ║
+║    during the intro too. Remove cursor:none from the * or body selector.   ║
+║  • If text gets cut off, your game's CSS might have overflow:hidden on      ║
+║    body. That is fine — the intro panel uses its own scrolling.            ║
+║  • Fonts load from Google Fonts. You need an internet connection.           ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OUTBREAK: SAVE THE RIG</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Special+Elite&display=swap');
+
+/* ── Reset only what we own ── */
+#bg, #topbar, #ticker, #cutscene, #title-screen,
+#bg *, #topbar *, #ticker *, #cutscene *, #title-screen * {
+  margin: 0; padding: 0; box-sizing: border-box;
+}
+
+/* ── Cursor: always visible, pointer on buttons ── */
+html { cursor: default !important; }
+#cutscene button, #title-screen button { cursor: pointer !important; }
+
+/* ══════════════ BACKGROUND ══════════════ */
+#bg {
+  position: fixed; inset: 0; z-index: 0; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 100%, #030e1c 0%, #010307 55%, #000 100%);
+}
+.ob-star {
+  position: absolute; border-radius: 50%;
+  background: rgba(255,255,255,0.75);
+  animation: ob-twinkle ease-in-out infinite alternate;
+}
+@keyframes ob-twinkle {
+  from { opacity: 0.1; transform: scale(0.7); }
+  to   { opacity: 0.9; transform: scale(1.2); }
+}
+.ob-rain {
+  position: absolute; width: 1px;
+  background: linear-gradient(to bottom, transparent, rgba(140,180,255,0.18), transparent);
+  animation: ob-fall linear infinite;
+}
+@keyframes ob-fall { from { top: -15%; } to { top: 120%; } }
+.ob-swell {
+  position: absolute; left: -5%; width: 110%; border-radius: 50%;
+  animation: ob-sway ease-in-out infinite alternate;
+}
+@keyframes ob-sway {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-8px); }
+}
+.ob-oil {
+  position: absolute; border-radius: 60%;
+  animation: ob-oilsway ease-in-out infinite alternate;
+}
+@keyframes ob-oilsway {
+  from { transform: scale(1) rotate(-2deg); opacity: 0.4; }
+  to   { transform: scale(1.07) rotate(2deg); opacity: 0.65; }
+}
+
+/* rig silhouette */
+#ob-rig {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  z-index: 1; width: 440px; pointer-events: none; opacity: 0.05;
+}
+
+/* scanlines */
+#ob-scan {
+  position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,0,0,0.018) 2px, rgba(0,0,0,0.018) 4px
+  );
+}
+
+/* ══════════════ TOP BAR ══════════════ */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 500;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 9px 26px;
+  background: rgba(0,0,0,0.75);
+  border-bottom: 1px solid rgba(0,200,100,0.1);
+  font-family: 'Share Tech Mono', monospace;
+}
+#tb-left {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 700;
+  color: #00ff78; text-shadow: 0 0 14px #00ff78;
+  letter-spacing: 3px; line-height: 1.6;
+}
+#tb-left span {
+  display: block; font-size: 8px;
+  color: rgba(0,255,120,0.38); letter-spacing: 2px; font-family: 'Share Tech Mono', monospace;
+}
+#tb-right {
+  font-size: 9px; color: rgba(255,255,255,0.28);
+  letter-spacing: 2px; text-align: right; line-height: 2;
+}
+.ob-blink {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: #ff2200; box-shadow: 0 0 8px #ff2200; margin-right: 5px;
+  animation: ob-blink 1s infinite;
+}
+@keyframes ob-blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+#tb-crit { color: #ff4444; }
+
+/* ══════════════ TICKER ══════════════ */
+#ticker {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 500;
+  height: 26px; overflow: hidden;
+  background: rgba(0,0,0,0.75);
+  border-top: 1px solid rgba(0,200,100,0.1);
+  display: flex; align-items: center;
+}
+#ticker-inner {
+  display: flex; gap: 80px; white-space: nowrap;
+  font-size: 9px; font-family: 'Share Tech Mono', monospace;
+  color: rgba(0,255,120,0.38); letter-spacing: 2px;
+  animation: ob-ticker 42s linear infinite;
+  padding-left: 100vw;
+}
+@keyframes ob-ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+#ticker-inner b { color: rgba(0,255,120,0.65); }
+
+/* ══════════════ CUTSCENE ══════════════ */
+#cutscene {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  /* top/bottom padding = topbar height + gap, and ticker height + gap */
+  padding: 58px clamp(14px,4vw,55px) 40px;
+}
+
+/* Header row above the panel */
+#cs-header {
+  width: 100%; max-width: 760px;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 14px; flex-shrink: 0;
+}
+#cs-logo {
+  font-family: 'Orbitron', sans-serif; font-weight: 900;
+  font-size: clamp(13px,2vw,22px);
+  color: #00ff78; text-shadow: 0 0 20px #00ff78;
+  letter-spacing: 3px; line-height: 1.5;
+}
+#cs-logo span {
+  display: block; font-size: 0.42em;
+  color: rgba(0,255,120,0.4); letter-spacing: 2px; font-weight: 400;
+  font-family: 'Share Tech Mono', monospace;
+}
+#cs-meta {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px; color: rgba(0,255,120,0.35);
+  letter-spacing: 2px; text-align: right; line-height: 2.1;
+}
+.cs-crit { color: #ff4444; }
+
+/* Panel card — fixed height, inner scrolls if needed */
+#cs-panel {
+  width: 100%; max-width: 760px;
+  border: 1px solid rgba(0,255,120,0.18);
+  background: rgba(0,5,2,0.92);
+  position: relative; flex-shrink: 0;
+  /* Height = viewport minus topbar(44px) minus gap(14px) minus header(~56px) minus footer(~56px) minus ticker(26px) minus breathing room */
+  height: calc(100vh - 44px - 14px - 56px - 56px - 26px - 28px);
+  min-height: 220px; max-height: 520px;
+  display: flex; flex-direction: column;
+}
+#cs-panel::before {
+  content: ''; position: absolute; top: -1px; left: 20px;
+  width: 72px; height: 2px; background: #00ff78; box-shadow: 0 0 8px #00ff78;
+}
+#cs-panel::after {
+  content: ''; position: absolute; bottom: -1px; right: 20px;
+  width: 72px; height: 2px; background: #00ff78; box-shadow: 0 0 8px #00ff78;
+}
+
+/* Static header inside panel (step + title) */
+#cs-panel-head {
+  padding: clamp(16px,2.5vw,28px) clamp(18px,3.5vw,42px) 0;
+  flex-shrink: 0;
+}
+#cs-step {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 8px; letter-spacing: 5px;
+  color: rgba(0,255,120,0.38); text-transform: uppercase;
+  margin-bottom: 10px;
+}
+#cs-title {
+  font-family: 'Orbitron', sans-serif; font-weight: 700;
+  font-size: clamp(13px,2vw,22px);
+  color: #fff; letter-spacing: 2px; line-height: 1.3;
+  margin-bottom: 14px;
+}
+#cs-title .red   { color: #ff4444; text-shadow: 0 0 14px #ff3300; }
+#cs-title .grn   { color: #00ff78; text-shadow: 0 0 14px #00ff78; }
+#cs-title .amber { color: #ff9500; text-shadow: 0 0 14px #ff7700; }
+
+/* Scrollable body */
+#cs-body {
+  flex: 1; overflow-y: auto;
+  padding: 0 clamp(18px,3.5vw,42px) clamp(16px,2.5vw,28px);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: clamp(10.5px,1.25vw,13px);
+  line-height: 1.95; letter-spacing: 0.6px;
+  color: rgba(255,255,255,0.67);
+  /* thin custom scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,255,120,0.3) transparent;
+}
+#cs-body::-webkit-scrollbar { width: 4px; }
+#cs-body::-webkit-scrollbar-track { background: transparent; }
+#cs-body::-webkit-scrollbar-thumb { background: rgba(0,255,120,0.3); border-radius: 2px; }
+#cs-body b     { color: rgba(255,255,255,0.94); }
+#cs-body .hi-g { color: #00ff78; }
+#cs-body .hi-r { color: #ff5555; }
+#cs-body .hi-a { color: #ff9500; }
+
+/* Typewriter cursor */
+.cs-cur {
+  display: inline-block; width: 8px; height: 13px;
+  background: #00ff78; margin-left: 2px; vertical-align: middle;
+  animation: ob-blink 0.65s infinite;
+}
+
+/* Journal card (used inside #cs-body) */
+.j-block {
+  border: 1px solid rgba(210,185,140,0.2);
+  border-left: 3px solid rgba(210,185,140,0.38);
+  background: rgba(32,20,5,0.62);
+  padding: 14px 18px; position: relative;
+}
+.j-corner { position: absolute; top: 9px; right: 12px; font-size: 16px; opacity: 0.2; }
+.j-date {
+  font-family: 'Special Elite', cursive;
+  font-size: clamp(9.5px,1.1vw,12px);
+  color: rgba(218,192,142,0.55); margin-bottom: 8px; letter-spacing: 1px;
+}
+.j-text {
+  font-family: 'Special Elite', cursive;
+  font-size: clamp(11px,1.3vw,13.5px);
+  line-height: 1.95; color: rgba(228,208,163,0.85); letter-spacing: 0.3px;
+}
+.cs-note {
+  margin-top: 10px; padding: 8px 12px;
+  border-left: 2px solid rgba(255,149,0,0.38);
+  font-size: 9px; font-family: 'Share Tech Mono', monospace;
+  color: rgba(255,149,0,0.5); letter-spacing: 1px; line-height: 1.85;
+  background: rgba(255,100,0,0.03);
+}
+
+/* Footer row */
+#cs-footer {
+  width: 100%; max-width: 760px;
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 12px; flex-shrink: 0;
+}
+#cs-dots { display: flex; gap: 7px; align-items: center; }
+.cs-dot {
+  height: 3px; border-radius: 2px; width: 18px;
+  background: rgba(0,255,120,0.13);
+  transition: all 0.35s ease;
+}
+.cs-dot.done   { background: rgba(0,255,120,0.38); }
+.cs-dot.active { background: #00ff78; box-shadow: 0 0 7px #00ff78; width: 30px; }
+#cs-nav { display: flex; align-items: center; gap: 16px; }
+#cs-skip {
+  font-size: 9px; letter-spacing: 2px; color: rgba(255,255,255,0.22);
+  background: none; border: none; cursor: pointer !important;
+  font-family: 'Share Tech Mono', monospace;
+  transition: color 0.2s; padding: 6px 2px;
+}
+#cs-skip:hover { color: rgba(255,255,255,0.55); }
+#cs-next {
+  padding: 10px 30px; cursor: pointer !important;
+  font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 700;
+  letter-spacing: 3px; text-transform: uppercase;
+  border: 1px solid #00ff78; background: transparent; color: #00ff78;
+  transition: all 0.2s;
+}
+#cs-next:hover { background: rgba(0,255,120,0.1); box-shadow: 0 0 16px rgba(0,255,120,0.2); }
+#cs-next:active { transform: scale(0.97); }
+
+/* ══════════════ TITLE / MAIN MENU ══════════════ */
+#title-screen {
+  position: fixed; inset: 0; z-index: 200;
+  display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at 50% 25%, rgba(0,18,8,0.98) 0%, #000 100%);
+  padding: 55px 24px 36px;
+  font-family: 'Share Tech Mono', monospace;
+}
+#title-screen::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.6) 100%);
+}
+.ts-name {
+  position: relative; z-index: 1;
+  font-family: 'Orbitron', sans-serif; font-weight: 900;
+  font-size: clamp(38px,9vw,100px);
+  color: #fff; letter-spacing: 8px;
+  text-shadow: 0 0 70px rgba(255,255,255,0.1), 0 0 3px rgba(0,255,120,0.4);
+  margin-bottom: 0; text-align: center; line-height: 1.1;
+}
+.ts-sub-line {
+  position: relative; z-index: 1;
+  font-family: 'Orbitron', sans-serif; font-size: clamp(10px,1.8vw,16px);
+  color: #ff4444; letter-spacing: 5px; text-shadow: 0 0 14px #ff2200;
+  margin-top: 6px; margin-bottom: 0; text-align: center;
+}
+.ts-rule { position: relative; z-index: 1; width: 150px; height: 1px; background: #00ff78; box-shadow: 0 0 10px #00ff78; margin: 16px auto; }
+.ts-tagline { position: relative; z-index: 1; font-size: 10px; letter-spacing: 5px; color: rgba(255,255,255,0.26); text-align: center; margin-bottom: 4px; text-transform: uppercase; }
+.ts-date     { position: relative; z-index: 1; font-size: clamp(11px,1.4vw,13px); letter-spacing: 4px; color: #00ff78; text-shadow: 0 0 10px #00ff78; text-align: center; margin-bottom: 3px; }
+.ts-loc      { position: relative; z-index: 1; font-size: 9px; letter-spacing: 3px; color: rgba(255,255,255,0.2); text-align: center; margin-bottom: 44px; }
+.ts-btn {
+  position: relative; z-index: 1;
+  display: block; width: 260px; margin: 0 auto 12px;
+  padding: 14px 0; font-family: 'Orbitron', sans-serif;
+  font-size: 13px; font-weight: 700; letter-spacing: 4px;
+  text-transform: uppercase; border: none; cursor: pointer !important;
+  transition: all 0.2s;
+}
+.ts-btn.primary {
+  background: #00ff78; color: #000;
+  box-shadow: 0 0 24px rgba(0,255,120,0.4);
+}
+.ts-btn.primary:hover { background: #00ffaa; transform: scale(1.04); box-shadow: 0 0 36px rgba(0,255,120,0.6); }
+.ts-btn.secondary {
+  background: transparent; color: rgba(0,255,120,0.5);
+  border: 1px solid rgba(0,255,120,0.22); font-size: 11px;
+}
+.ts-btn.secondary:hover { color: #00ff78; border-color: rgba(0,255,120,0.5); }
+.ts-hint { position: relative; z-index: 1; margin-top: 30px; font-size: 9px; letter-spacing: 2px; color: rgba(255,255,255,0.15); text-align: center; line-height: 2.4; }
+.ts-hint b { color: rgba(255,255,255,0.3); }
+</style>
 </head>
 <body>
 
-    <div class="overlay">
-        <h1 class="title">OIL RIG RESCUE</h1>
-        
-        <p class="mission">
-            You’ve been deployed to a collapsing offshore oil rig.
-            Oil mutations have taken over the platform.
-            Fight your way through the infected,
-            reach the control room,
-            and stabilize the rig before a catastrophic spill destroys the ocean ecosystem.
-        </p>
+<!-- ═══════ ANIMATED BACKGROUND ═══════ -->
+<div id="bg"></div>
+<svg id="ob-rig" viewBox="0 0 440 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="115" y="235" width="210" height="65" fill="white"/>
+  <rect x="90"  y="212" width="260" height="26" fill="white"/>
+  <rect x="200" y="60"  width="10"  height="155" fill="white"/>
+  <rect x="188" y="54"  width="55"  height="9"   fill="white"/>
+  <rect x="162" y="80"  width="9"   height="132" fill="white"/>
+  <rect x="260" y="80"  width="9"   height="132" fill="white"/>
+  <rect x="106" y="233" width="12"  height="90"  fill="white"/>
+  <rect x="322" y="233" width="12"  height="90"  fill="white"/>
+  <rect x="148" y="233" width="10"  height="80"  fill="white"/>
+  <rect x="282" y="233" width="10"  height="80"  fill="white"/>
+</svg>
+<div id="ob-scan"></div>
 
-        <button id="startButton">START MISSION</button>
+<!-- ═══════ TOP BAR ═══════ -->
+<div id="topbar">
+  <div id="tb-left">OUTBREAK: SAVE THE RIG<span>Preserve Oil Platform · Atlantic Sector · Classified</span></div>
+  <div id="tb-right">
+    <span class="ob-blink"></span>LIVE — APR 18 · 2035 · 03:14 AM<br>
+    CREW STATUS: <span id="tb-crit">CRITICAL</span> &nbsp;·&nbsp; COMMS: <span id="tb-crit">OFFLINE</span>
+  </div>
+</div>
+
+<!-- ═══════ TICKER ═══════ -->
+<div id="ticker">
+  <div id="ticker-inner">
+    <span><b>WEATHER:</b> Force 7 winds · 11ft swells · 39°F · Visibility: Low</span>
+    <span><b>RIG STATUS:</b> Preserve Platform — Communications offline since 01:47</span>
+    <span><b>CREW:</b> 24 personnel · Last contact April 17th · 22:00 hrs</span>
+    <span><b>ALERT:</b> Unknown biological event · Atlantic Quarantine Protocol ACTIVE</span>
+    <span><b>EXTRACTION:</b> Helicopter scheduled April 19th · 06:00 hrs</span>
+    <span><b>PIPELINE:</b> Main pressure nominal · Secondary manifold — anomaly detected</span>
+    <span><b>SURVIVOR:</b> One confirmed — Gotta Re'shikle · Tech Grade IV</span>
+    <!-- repeated for seamless loop -->
+    <span><b>WEATHER:</b> Force 7 winds · 11ft swells · 39°F · Visibility: Low</span>
+    <span><b>RIG STATUS:</b> Preserve Platform — Communications offline since 01:47</span>
+    <span><b>CREW:</b> 24 personnel · Last contact April 17th · 22:00 hrs</span>
+    <span><b>ALERT:</b> Unknown biological event · Atlantic Quarantine Protocol ACTIVE</span>
+    <span><b>EXTRACTION:</b> Helicopter scheduled April 19th · 06:00 hrs</span>
+    <span><b>PIPELINE:</b> Main pressure nominal · Secondary manifold — anomaly detected</span>
+    <span><b>SURVIVOR:</b> One confirmed — Gotta Re'shikle · Tech Grade IV</span>
+  </div>
+</div>
+
+<!-- ═══════ CUTSCENE ═══════ -->
+<div id="cutscene">
+  <div id="cs-header">
+    <div id="cs-logo">OUTBREAK<span>Educational Presentation</span></div>
+    <div id="cs-meta">
+      SAVE THE RIG<br>
+      GAME & PRESENTATION<br>
+      <span class="cs-crit">SUSTAINABILITY FOCUS</span>
     </div>
+  </div>
 
-    <script>
-        document.getElementById("startButton").addEventListener("click", function() {
-            window.location.href = "game.html";
-        });
-    </script>
+  <div id="cs-panel">
+    <div id="cs-panel-head">
+      <div id="cs-step"></div>
+      <div id="cs-title"></div>
+    </div>
+    <div id="cs-body"></div>
+  </div>
 
+  <div id="cs-footer">
+    <div id="cs-dots"></div>
+    <div id="cs-nav">
+      <button id="cs-skip" onclick="obSkip()">SKIP</button>
+      <button id="cs-next" onclick="obNext()">NEXT ▶</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ CUSTOM GAME AREA ═══════ -->
+<!-- ADD YOUR GAME HTML HERE. It will appear after the story slides. -->
+<div id="game-container" style="display:none;">
+  <!-- YOUR GAME GOES HERE -->
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════
+   OUTBREAK: SAVE THE RIG — Intro / Cutscene System
+   ════════════════════════════════════════════════════════ */
+
+// ── Build animated background ──────────────────────────
+(function () {
+  const bg = document.getElementById('bg');
+
+  // Stars
+  for (let i = 0; i < 120; i++) {
+    const el = document.createElement('div');
+    el.className = 'ob-star';
+    const sz = 0.8 + Math.random() * 2.2;
+    el.style.cssText = [
+      `width:${sz}px`, `height:${sz}px`,
+      `top:${Math.random() * 68}%`,
+      `left:${Math.random() * 100}%`,
+      `animation-duration:${1.8 + Math.random() * 4}s`,
+      `animation-delay:${-(Math.random() * 6)}s`
+    ].join(';');
+    bg.appendChild(el);
+  }
+
+  // Rain drops
+  for (let i = 0; i < 70; i++) {
+    const el = document.createElement('div');
+    el.className = 'ob-rain';
+    el.style.cssText = [
+      `left:${Math.random() * 100}%`,
+      `height:${45 + Math.random() * 110}px`,
+      `animation-duration:${0.6 + Math.random() * 1.3}s`,
+      `animation-delay:${-(Math.random() * 2)}s`,
+      `opacity:${0.07 + Math.random() * 0.18}`
+    ].join(';');
+    bg.appendChild(el);
+  }
+
+  // Ocean swells
+  [
+    ['rgba(2,10,28,0.5)',  100, 0,   6],
+    ['rgba(1,8,22,0.45)', 140, 18,  9],
+    ['rgba(0,5,18,0.4)',  180, 38, 12]
+  ].forEach(([col, h, bot, dur]) => {
+    const el = document.createElement('div');
+    el.className = 'ob-swell';
+    el.style.cssText = [
+      `background:radial-gradient(ellipse,${col} 0%,transparent 70%)`,
+      `height:${h}px`, `bottom:${bot}px`,
+      `animation-duration:${dur}s`
+    ].join(';');
+    bg.appendChild(el);
+  });
+
+  // Oil shimmer patches
+  const grads = [
+    'radial-gradient(ellipse,rgba(55,0,95,0.1),rgba(0,8,55,0.05),transparent)',
+    'radial-gradient(ellipse,rgba(35,0,70,0.08),rgba(0,5,45,0.04),transparent)',
+    'radial-gradient(ellipse,rgba(70,15,0,0.07),rgba(25,0,50,0.04),transparent)',
+  ];
+  for (let i = 0; i < 7; i++) {
+    const el = document.createElement('div');
+    el.className = 'ob-oil';
+    el.style.cssText = [
+      `background:${grads[i % grads.length]}`,
+      `width:${180 + Math.random() * 280}px`,
+      `height:${80 + Math.random() * 140}px`,
+      `top:${52 + Math.random() * 44}%`,
+      `left:${Math.random() * 84}%`,
+      `animation-duration:${5 + Math.random() * 8}s`,
+      `animation-delay:${-(Math.random() * 8)}s`
+    ].join(';');
+    bg.appendChild(el);
+  }
+})();
+
+/* ══════════════════════════════════════════════════════════
+   SLIDE CONTENT — Edit or add slides here
+   ═══════════════════════════════════════════════════════════
+   
+   Each slide object has:
+   - step: "STORY BRIEFING — XX / XX" (appears at top)
+   - title: Slide title (can use HTML: <span class="red">text</span>)
+   - body: Main text (supports HTML and \n for line breaks)
+   - type: 'journal' (optional) renders in a journal card
+   - jdate, jicon, jstyle, note: (for journal type only)
+   
+   TO ADD A NEW SLIDE:
+   1. Copy the last slide object
+   2. Increment the step numbers (e.g., "02 / 07" → "08 / 07")
+   3. Update all step counts (e.g., "/ 07" → "/ 08")
+   4. Add your content to body
+   5. (Optional) Set type: 'journal' for handwritten style card
+ */
+
+const OB_SLIDES = [
+  {
+    step:  'PRESENTATION — 01 / 08',
+    title: '<span class="red">OUTBREAK: SAVE THE RIG</span>',
+    body: `An Educational Survival Game About Oil Rig Safety and Environmental Protection\n\n<b>Created By:</b>\n<span class="hi-g">Aayush</span>  ·  <span class="hi-g">Adam</span>  ·  <span class="hi-g">August</span>  ·  <span class="hi-g">Milan</span>\n\n<span class="hi-a">A project exploring the critical importance of preventing catastrophic industrial failures.</span>`
+  },
+  {
+    step:  'PRESENTATION — 02 / 08',
+    title: '<span class="amber">History of Oil Rigs</span>',
+    body: `<b class="hi-g">The Beginning:</b> Oil drilling on land began in the <span class="hi-a">mid-1800s</span>, with iconic structures like <b>Drake Well</b> and <b>The Wooden Derrick</b> pioneering the industry.\n\n<b class="hi-g">Going Offshore:</b> The first true <span class="hi-a">offshore rig</span>—<b>Kermac No. 16</b>—launched in <span class="hi-a">1947</span>. It ventured far enough to lose sight of shore, yet operated in just 20 feet of water.\n\n<b class="hi-g">Modern Breakthroughs:</b> The <span class="hi-a">1980s</span> brought computer systems that allowed rigs to withstand <span class="hi-r">hurricane-force winds</span> and maintain stability in extreme conditions.\n\n<b class="hi-g">Today:</b> Rigs now operate in <span class="hi-r">ultra-deep waters</span>, drilling to depths previously thought impossible—but with greater risk comes greater responsibility.`
+  },
+  {
+    step:  'PRESENTATION — 03 / 08',
+    title: '<span class="red">How Oil Rig Failures Occur</span>',
+    body: `<b class="hi-a">① KICK AND BLOWOUT</b>\nMassive pressure imbalances between the pipe and oil reservoir cause catastrophic releases. The oil shoots out like a shaken soda bottle—uncontrollable and deadly.\n\n<b class="hi-a">② BLOWOUT PREVENTER FAILURE</b>\nThe seal connecting the pipe to the ocean floor fails, often due to pipe buckling. When this critical safety valve gives way, disaster follows.\n\n<b class="hi-a">③ STRUCTURAL FAILURE</b>\nNeglected maintenance and equipment degradation compound over time. One unchecked problem cascades into total system collapse.\n\n<b class="hi-r">④ FIRE AND EXPLOSION</b>\nOil + Ignition = <span class="hi-r">Catastrophe</span>. A single spark can turn a platform into an inferno in seconds.`
+  },
+  {
+    step:  'PRESENTATION — 04 / 08',
+    title: '<span class="red">Environmental Impact of Oil Spills</span>',
+    body: `<b class="hi-r">Wildlife Devastation:</b> Oil-soaked birds and marine animals perish, their natural defenses overwhelmed by toxic coating. Fish habitats become wastelands.\n\n<b class="hi-r">Ecosystem Collapse:</b> The slick smothers coastal ecosystems, stripping oxygen from underwater habitats and destroying the foundation of entire food chains.\n\n<b class="hi-r">Chemical Poisoning:</b> <span class="hi-a">Volatile Organic Compounds (VOCs)</span> poison the air and water, with impacts that persist for <span class="hi-r">decades</span>.\n\n<b class="hi-g">The Cost:</b> Billions in cleanup. Thousands of species affected. Generations of environmental damage.\n\n<span class="hi-a">Prevention is not just smart—it's essential.</span>`
+  },
+  {
+    step:  'PRESENTATION — 05 / 08',
+    title: '<span class="amber">Making the Game: Technical Process</span>',
+    body: `<b class="hi-g">① 3D Foundation</b>\nBuilt with <span class="hi-a">Three.js</span>, a powerful 3D graphics library. Started with a basic world using placeholder boxes.\n\n<b class="hi-g">② Visual Polish</b>\nImported textures from online libraries to transform bland geometry into realistic environments.\n\n<b class="hi-g">③ AI-Generated Assets</b>\nUsed AI to generate custom textures and converted them into 3D models for enemies and environmental details.\n\n<b class="hi-g">④ Gameplay Systems</b>\nIntegrated zombie mechanics with survival elements, refined lighting systems, and added dynamic terrain.\n\n<b class="hi-a">Result:</b> A fully immersive first-person survival experience that teaches while it thrills.`
+  },
+  {
+    step:  'PRESENTATION — 06 / 08',
+    title: '<span class="grn">Connection to Sustainability</span>',
+    body: `<b class="hi-g">The Central Conflict:</b>\nOil remains a prominent and necessary energy source in our society—but it comes with <span class="hi-r">inherent risks</span>.\n\n<b class="hi-g">The Game's Message:</b>\nOutbreak: Save the Rig presents a scenario where preventing environmental catastrophe becomes a matter of <span class="hi-r">survival</span>. Players must maintain critical infrastructure while facing impossible odds.\n\n<b class="hi-g">The Deeper Truth:</b>\nBy experiencing the urgency of protecting industrial systems, players gain insight into <span class="hi-a">why cleaner, safer energy sources are essential</span> for our future.\n\n<span class="hi-a">This game challenges us to ask: How much longer can we rely on energy that demands such vigilance?</span>`
+  },
+  {
+    step:  'PRESENTATION — 07 / 08',
+    title: '<span class="amber">Purpose & Educational Goals</span>',
+    body: `<b class="hi-g">Primary Objective:</b>\nEducate players on the <span class="hi-r">mechanisms and consequences</span> of oil rig failures in an engaging, interactive format.\n\n<b class="hi-g">Awareness:</b>\nHighlight the <span class="hi-r">critical dangers</span> of industrial failures and the cascading environmental impact that most people never see.\n\n<b class="hi-g">Problem Recognition:</b>\nHelp players understand <span class="hi-a">why</span> oil rigs present such significant environmental risks and what it takes to prevent disaster.\n\n<b class="hi-g">Bigger Picture:</b>\nInspire reflection on <span class="hi-a">energy independence</span>, <span class="hi-a">environmental responsibility</span>, and the future of sustainable power.\n\n<span class="hi-a">Fun + Learning = Real Impact</span>`
+  },
+  {
+    step:  'PRESENTATION — 08 / 08',
+    title: '<span class="red">Demo & Questions</span>',
+    body: `<b class="hi-g">Ready to Experience:</b> <span class="hi-a">Outbreak: Save the Rig</span>\n\nYou are about to see a fully immersive 3D survival game where your decisions matter and every system you maintain could mean the difference between salvation and catastrophe.\n\n<b class="hi-g">What You'll See:</b>\n• First-person gameplay in a fully modeled oil rig\n• Real-time survival mechanics and environmental threats\n• Strategic maintenance decisions with lasting consequences\n• Realistic scenarios based on actual industrial failures\n\n<span class="hi-a">Let's play.</span>\n\n<b>Questions?</b> We're here to discuss.`
+  }
+];
+
+// ── Engine state ────────────────────────────────────────
+let obIdx = 0, obTyping = false, obTO = null;
+
+const obStepEl  = document.getElementById('cs-step');
+const obTitleEl = document.getElementById('cs-title');
+const obBodyEl  = document.getElementById('cs-body');
+const obDotsEl  = document.getElementById('cs-dots');
+const obNextEl  = document.getElementById('cs-next');
+
+// Build progress dots
+(function () {
+  OB_SLIDES.forEach(() => {
+    const d = document.createElement('div');
+    d.className = 'cs-dot';
+    obDotsEl.appendChild(d);
+  });
+})();
+
+// Tokenise HTML for typewriter (tags injected instantly, chars one at a time)
+function obTokenise(html) {
+  const tokens = [];
+  let i = 0;
+  while (i < html.length) {
+    if (html[i] === '<') {
+      const end = html.indexOf('>', i);
+      if (end === -1) { tokens.push({ tag: false, val: html[i++] }); continue; }
+      tokens.push({ tag: true, val: html.slice(i, end + 1) });
+      i = end + 1;
+    } else if (html[i] === '\n') {
+      tokens.push({ tag: true, val: '<br>' });
+      i++;
+    } else {
+      tokens.push({ tag: false, val: html[i++] });
+    }
+  }
+  return tokens;
+}
+
+// Type text into a DOM element character by character
+function obType(target, html, speed, onDone) {
+  target.innerHTML = '';
+  obTyping = true;
+  clearTimeout(obTO);
+  const tokens = obTokenise(html);
+  let ci = 0, rendered = '';
+
+  function step() {
+    if (ci >= tokens.length) {
+      target.innerHTML = rendered + '<span class="cs-cur"></span>';
+      obTyping = false;
+      if (onDone) onDone();
+      return;
+    }
+    const tok = tokens[ci++];
+    rendered += tok.tag ? tok.val : tok.val;
+    target.innerHTML = rendered + '<span class="cs-cur"></span>';
+    obTO = setTimeout(step, tok.tag ? 0 : speed);
+  }
+  step();
+}
+
+// Instantly complete whatever is typing
+function obFinishNow() {
+  clearTimeout(obTO);
+  obTyping = false;
+  const s = OB_SLIDES[obIdx];
+  if (s.type === 'journal') {
+    const jt = obBodyEl.querySelector('.j-text');
+    if (jt) jt.innerHTML = s.body.replace(/\n/g, '<br>') + '<span class="cs-cur"></span>';
+    const ne = obBodyEl.querySelector('.cs-note');
+    if (ne) ne.style.opacity = '1';
+  } else {
+    obBodyEl.innerHTML = s.body.replace(/\n/g, '<br>') + '<span class="cs-cur"></span>';
+  }
+}
+
+// Render a journal slide
+function obRenderJournal(s, speed) {
+  obBodyEl.innerHTML = `
+    <div class="j-block" style="${s.jstyle || ''}">
+      <div class="j-corner">${s.jicon || '📖'}</div>
+      <div class="j-date">${s.jdate || ''}</div>
+      <div class="j-text"></div>
+    </div>
+    ${s.note ? `<div class="cs-note" style="opacity:0;transition:opacity 0.6s;">${s.note}</div>` : ''}
+  `;
+  const jt = obBodyEl.querySelector('.j-text');
+  obType(jt, s.body, speed, () => {
+    const ne = obBodyEl.querySelector('.cs-note');
+    if (ne) setTimeout(() => { ne.style.opacity = '1'; }, 200);
+  });
+}
+
+// Show a slide by index
+function obShowSlide(idx) {
+  if (idx >= OB_SLIDES.length) { obEndCutscene(); return; }
+  obIdx = idx;
+  clearTimeout(obTO);
+  obTyping = false;
+  const s = OB_SLIDES[idx];
+
+  obStepEl.textContent = s.step;
+  obTitleEl.innerHTML  = s.title;
+  obBodyEl.scrollTop   = 0;
+
+  // Progress dots
+  document.querySelectorAll('.cs-dot').forEach((d, i) => {
+    d.className = 'cs-dot' + (i < idx ? ' done' : i === idx ? ' active' : '');
+  });
+
+  // Next button label
+  obNextEl.textContent = idx === OB_SLIDES.length - 1 ? 'BEGIN ▶' : 'NEXT ▶';
+
+  // Panel border colour
+  document.getElementById('cs-panel').style.borderColor =
+    s.type === 'journal' ? 'rgba(210,185,140,0.2)' : 'rgba(0,255,120,0.18)';
+
+  if (s.type === 'journal') {
+    obRenderJournal(s, 10);
+  } else {
+    obType(obBodyEl, s.body, 12, null);
+  }
+}
+
+// Next / skip handlers (called from onclick attributes)
+function obNext() {
+  if (obTyping) { obFinishNow(); return; }
+  obShowSlide(obIdx + 1);
+}
+
+function obSkip() {
+  clearTimeout(obTO);
+  obTyping = false;
+  obEndCutscene();
+}
+
+function obEndCutscene() {
+  // After final slide, you can:
+  // 1. Keep the slides visible (do nothing)
+  // 2. Show your game with: document.getElementById('game-container').style.display = 'block';
+  // 3. Call your game start function: if (typeof startGame === 'function') startGame();
+  //
+  // For now, slides stay visible. Uncomment below to auto-start your game:
+  // document.getElementById('game-container').style.display = 'block';
+}
+
+function obShowCutscene() {
+  const cs = document.getElementById('cutscene');
+  cs.style.display = 'flex';
+  cs.style.opacity = '0';
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    cs.style.transition = 'opacity 0.5s';
+    cs.style.opacity    = '1';
+    setTimeout(() => cs.style.transition = '', 500);
+    obShowSlide(0);
+  }));
+}
+
+// Keyboard: Space/Enter = next, Escape = skip
+document.addEventListener('keydown', function (e) {
+  const csVisible = document.getElementById('cutscene').style.display !== 'none';
+  if (csVisible && (e.code === 'Space' || e.code === 'Enter')) {
+    obNext(); e.preventDefault();
+  }
+  if (csVisible && e.code === 'Escape') obSkip();
+});
+
+// ── GAME START ──────────────────────────────────────────
+// After final slide, to start your game, call one of these:
+// 1. In obEndCutscene(), uncomment startGame call (see function above)
+// 2. Or add a button in your #game-container and call your start function
+// 3. Or customize onNext() to detect the final slide and start your game
+//
+// The cutscene and game layers can coexist — just show #game-container when ready.
+
+// ── Boot: start the cutscene immediately ────────────────
+obShowSlide(0);
+</script>
 </body>
 </html>
